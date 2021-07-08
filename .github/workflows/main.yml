@@ -1,0 +1,42 @@
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  flake8:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: Flake8 Linter Step
+        uses: betrybe/flake8-linter-action@v1.2
+        id: flake8_linter
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          pr_number: ${{ github.event.number }}
+          
+  evaluator_job:
+    name: Evaluator Job
+    runs-on: ubuntu-18.04
+    needs: [flake8]
+    services:
+      mongodb:
+        image: mongo
+        ports:
+          - "27017:27017"
+        options: -v ${{ github.workspace }}:/github/workspace
+    steps:
+      - uses: actions/checkout@v2
+      - name: Pytest Evaluator Step
+        uses: betrybe/pytest-evaluator-action@v1.3
+        with:
+          repository_main_branch: main
+        env:
+          DB_HOST: 'mongodb'
+          DB_PORT: '27017'
+        id: pytest_evaluator
+      - name: Store evaluation step
+        uses: betrybe/store-evaluation-action@v2
+        with:
+          evaluation-data: ${{ steps.pytest_evaluator.outputs.result }}
+          environment: staging
+          pr-number: ${{ github.event.number }}
